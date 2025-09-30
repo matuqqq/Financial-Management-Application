@@ -7,7 +7,8 @@ import {
   User, 
   DollarSign,
   X,
-  Plus
+  Plus,
+  List
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -18,6 +19,7 @@ interface SidebarProps {
 const navigation = [
   { name: 'Dashboard', href: '/', icon: Home },
   { name: 'Transactions', href: '/items', icon: CreditCard },
+  { name: 'Categories', href: '/categories', icon: List },
   { name: 'Profile', href: '/profile', icon: User },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];

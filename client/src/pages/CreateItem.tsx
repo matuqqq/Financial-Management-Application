@@ -4,39 +4,41 @@ import { motion } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Upload } from 'lucide-react';
 import LoadingSpinner from '../components/LoadingSpinner';
 import toast from 'react-hot-toast';
+import { getCategories, createItem } from '../services/api';
 
 const itemSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   amount: z.number().min(0.01, 'Amount must be greater than 0'),
   type: z.enum(['income', 'expense']),
-  categoryId: z.string().optional(),
+  categoryId: z.coerce.number().optional(),
   date: z.string().min(1, 'Date is required'),
   notes: z.string().optional(),
 });
 
 type ItemFormData = z.infer<typeof itemSchema>;
 
-const categories = [
-  { id: '1', name: 'Food' },
-  { id: '2', name: 'Transport' },
-  { id: '3', name: 'Entertainment' },
-  { id: '4', name: 'Shopping' },
-  { id: '5', name: 'Bills' },
-  { id: '6', name: 'Salary' },
-  { id: '7', name: 'Freelance' },
-];
+interface Category {
+  id: number;
+  name: string;
+}
 
 export default function CreateItem() {
   const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(false);
+  const queryClient = useQueryClient();
+
+  const { data: categoriesData } = useQuery<{ data: { categories: Category[] } }>({ 
+    queryKey: ['categories'], 
+    queryFn: getCategories 
+  });
+  const categories = categoriesData?.data.categories || [];
 
   const {
     register,
     handleSubmit,
-    watch,
     formState: { errors },
   } = useForm<ItemFormData>({
     resolver: zodResolver(itemSchema),
@@ -46,20 +48,21 @@ export default function CreateItem() {
     },
   });
 
-  const watchType = watch('type');
-
-  const onSubmit = async (data: ItemFormData) => {
-    setIsLoading(true);
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+  const createItemMutation = useMutation({
+    mutationFn: createItem,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['items'] });
+      queryClient.invalidateQueries({ queryKey: ['item-stats'] });
       toast.success('Transaction created successfully!');
       navigate('/items');
-    } catch (error: any) {
+    },
+    onError: () => {
       toast.error('Failed to create transaction');
-    } finally {
-      setIsLoading(false);
-    }
+    },
+  });
+
+  const onSubmit = (data: ItemFormData) => {
+    createItemMutation.mutate(data);
   };
 
   return (
@@ -225,10 +228,10 @@ export default function CreateItem() {
             </button>
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={createItemMutation.isPending}
               className="flex-1 btn btn-primary"
             >
-              {isLoading ? (
+              {createItemMutation.isPending ? (
                 <LoadingSpinner size="sm" className="mr-2" />
               ) : null}
               Create Transaction

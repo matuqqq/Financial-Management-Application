@@ -1,55 +1,68 @@
 import { motion } from 'framer-motion';
+import { useQuery } from '@tanstack/react-query';
 import { TrendingUp, TrendingDown, DollarSign, CreditCard } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { getItemStats, getItems } from '../services/api';
+import LoadingSpinner from '../components/LoadingSpinner';
 
-const mockData = [
-  { name: 'Jan', income: 4000, expense: 2400 },
-  { name: 'Feb', income: 3000, expense: 1398 },
-  { name: 'Mar', income: 2000, expense: 9800 },
-  { name: 'Apr', income: 2780, expense: 3908 },
-  { name: 'May', income: 1890, expense: 4800 },
-  { name: 'Jun', income: 2390, expense: 3800 },
-];
+const PIE_CHART_COLORS = ['#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6'];
 
-const categoryData = [
-  { name: 'Food', value: 400, color: '#10B981' },
-  { name: 'Transport', value: 300, color: '#3B82F6' },
-  { name: 'Entertainment', value: 200, color: '#F59E0B' },
-  { name: 'Shopping', value: 100, color: '#EF4444' },
-];
-
-const stats = [
-  {
-    name: 'Total Income',
-    value: '$12,345',
-    change: '+12.5%',
-    changeType: 'increase',
-    icon: TrendingUp,
-  },
-  {
-    name: 'Total Expenses',
-    value: '$8,456',
-    change: '-3.2%',
-    changeType: 'decrease',
-    icon: TrendingDown,
-  },
-  {
-    name: 'Net Savings',
-    value: '$3,889',
-    change: '+8.1%',
-    changeType: 'increase',
-    icon: DollarSign,
-  },
-  {
-    name: 'Transactions',
-    value: '156',
-    change: '+4.3%',
-    changeType: 'increase',
-    icon: CreditCard,
-  },
-];
+interface Item {
+  id: number;
+  title: string;
+  amount: number;
+  type: 'income' | 'expense';
+  date: string;
+}
 
 export default function Dashboard() {
+  const { data: statsData, isLoading: isLoadingStats } = useQuery({ 
+    queryKey: ['item-stats'], 
+    queryFn: () => getItemStats({ year: new Date().getFullYear() })
+  });
+
+  const { data: recentItemsData, isLoading: isLoadingRecentItems } = useQuery<{ data: { items: Item[] } }>({ 
+    queryKey: ['items', { limit: 5 }], 
+    queryFn: () => getItems({ limit: 5 })
+  });
+
+  const stats = statsData?.data;
+  const recentItems = recentItemsData?.data.items || [];
+
+  if (isLoadingStats || isLoadingRecentItems) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
+
+  const totalIncome = typeof stats?.totalIncome === 'number' ? stats.totalIncome : 0;
+  const totalExpense = typeof stats?.totalExpense === 'number' ? stats.totalExpense : 0;
+  const netSavings = totalIncome - totalExpense;
+  const statCards = [
+    {
+      name: 'Total Income',
+      value: `$${totalIncome.toLocaleString()}`,
+      icon: TrendingUp,
+    },
+    {
+      name: 'Total Expenses',
+      value: `$${totalExpense.toLocaleString()}`,
+      icon: TrendingDown,
+    },
+    {
+      name: 'Net Savings',
+      value: `$${netSavings.toLocaleString()}`,
+      icon: DollarSign,
+    },
+    {
+      name: 'Transactions',
+      value: stats?.totalTransactions || '0',
+      icon: CreditCard,
+    },
+  ];
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -66,7 +79,7 @@ export default function Dashboard() {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, index) => (
+        {statCards.map((stat, index) => (
           <motion.div
             key={stat.name}
             initial={{ opacity: 0, y: 20 }}
@@ -83,11 +96,6 @@ export default function Dashboard() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-secondary-600">{stat.name}</p>
                 <p className="text-2xl font-semibold text-secondary-900">{stat.value}</p>
-                <p className={`text-sm ${
-                  stat.changeType === 'increase' ? 'text-green-600' : 'text-red-600'
-                }`}>
-                  {stat.change}
-                </p>
               </div>
             </div>
           </motion.div>
@@ -107,9 +115,9 @@ export default function Dashboard() {
             Income vs Expenses
           </h3>
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={mockData}>
+            <LineChart data={stats?.monthlySummary || []}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
+              <XAxis dataKey="month" />
               <YAxis />
               <Tooltip />
               <Line
@@ -144,32 +152,32 @@ export default function Dashboard() {
             <ResponsiveContainer width="60%" height={200}>
               <PieChart>
                 <Pie
-                  data={categoryData}
+                  data={stats?.categorySummary || []}
                   cx="50%"
                   cy="50%"
                   innerRadius={40}
                   outerRadius={80}
                   dataKey="value"
                 >
-                  {categoryData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  {(stats?.categorySummary || []).map((entry: any, index: number) => (
+                    <Cell key={`cell-${index}`} fill={PIE_CHART_COLORS[index % PIE_CHART_COLORS.length]} />
                   ))}
                 </Pie>
                 <Tooltip />
               </PieChart>
             </ResponsiveContainer>
             <div className="flex-1 space-y-2">
-              {categoryData.map((category) => (
+              {(stats?.categorySummary || []).map((category: any, index: number) => (
                 <div key={category.name} className="flex items-center">
                   <div
                     className="w-3 h-3 rounded-full mr-2"
-                    style={{ backgroundColor: category.color }}
+                    style={{ backgroundColor: PIE_CHART_COLORS[index % PIE_CHART_COLORS.length] }}
                   />
                   <span className="text-sm text-secondary-600">
                     {category.name}
                   </span>
                   <span className="ml-auto text-sm font-medium text-secondary-900">
-                    ${category.value}
+                    ${category.value.toLocaleString()}
                   </span>
                 </div>
               ))}
@@ -194,27 +202,22 @@ export default function Dashboard() {
           </a>
         </div>
         <div className="space-y-4">
-          {[
-            { title: 'Grocery Shopping', amount: '-$85.00', date: 'Today', type: 'expense' },
-            { title: 'Salary Deposit', amount: '+$2,500.00', date: 'Yesterday', type: 'income' },
-            { title: 'Coffee Shop', amount: '-$4.50', date: '2 days ago', type: 'expense' },
-            { title: 'Freelance Payment', amount: '+$450.00', date: '3 days ago', type: 'income' },
-          ].map((transaction, index) => (
+          {recentItems.map((transaction, index) => (
             <motion.div
               key={index}
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.3, delay: 0.7 + index * 0.1 }}
+              transition={{ duration: 0.3, delay: 0.1 * index }}
               className="flex items-center justify-between p-3 rounded-lg hover:bg-secondary-50 transition-colors"
             >
               <div>
                 <p className="font-medium text-secondary-900">{transaction.title}</p>
-                <p className="text-sm text-secondary-500">{transaction.date}</p>
+                <p className="text-sm text-secondary-500">{new Date(transaction.date).toLocaleDateString()}</p>
               </div>
               <p className={`font-semibold ${
                 transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
               }`}>
-                {transaction.amount}
+                {transaction.type === 'income' ? '+' : '-'}${transaction.amount.toLocaleString()}
               </p>
             </motion.div>
           ))}

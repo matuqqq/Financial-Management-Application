@@ -34,7 +34,7 @@ export default function Login() {
     try {
       await login(data.email, data.password);
       navigate('/');
-    } catch (error) {
+    } catch {
       // Error handled in auth context
     } finally {
       setIsLoading(false);

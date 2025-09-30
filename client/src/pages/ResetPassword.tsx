@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Eye, EyeOff } from 'lucide-react';
 import { api } from '../services/api';
+import { AxiosError } from 'axios';
 import LoadingSpinner from '../components/LoadingSpinner';
 import toast from 'react-hot-toast';
 
@@ -48,9 +49,13 @@ export default function ResetPassword() {
       });
       toast.success('Password reset successfully!');
       navigate('/login');
-    } catch (error: any) {
-      const message = error.response?.data?.error?.message || 'Failed to reset password';
-      toast.error(message);
+    } catch (error) {
+      if (error instanceof AxiosError) {
+        const message = error.response?.data?.error?.message || 'Failed to reset password';
+        toast.error(message);
+      } else {
+        toast.error('An unexpected error occurred.');
+      }
     } finally {
       setIsLoading(false);
     }

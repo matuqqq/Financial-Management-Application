@@ -5,7 +5,7 @@ import logger from '../utils/logger.js';
 const createTransporter = () => {
   if (process.env.NODE_ENV === 'production') {
     // Production email service (e.g., SendGrid, AWS SES)
-    return nodemailer.createTransporter({
+    return nodemailer.createTransport({
       service: 'gmail', // or your preferred service
       auth: {
         user: process.env.SMTP_USER,
@@ -14,7 +14,7 @@ const createTransporter = () => {
     });
   } else {
     // Development - use Ethereal Email or console
-    return nodemailer.createTransporter({
+    return nodemailer.createTransport({
       host: 'smtp.ethereal.email',
       port: 587,
       auth: {

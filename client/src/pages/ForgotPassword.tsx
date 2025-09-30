@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { ArrowLeft } from 'lucide-react';
 import { api } from '../services/api';
+import { AxiosError } from 'axios';
 import LoadingSpinner from '../components/LoadingSpinner';
 import toast from 'react-hot-toast';
 
@@ -33,9 +34,13 @@ export default function ForgotPassword() {
       await api.post('/auth/forgot-password', data);
       setEmailSent(true);
       toast.success('Password reset email sent!');
-    } catch (error: any) {
-      const message = error.response?.data?.error?.message || 'Failed to send reset email';
-      toast.error(message);
+    } catch (error) {
+      if (error instanceof AxiosError) {
+        const message = error.response?.data?.error?.message || 'Failed to send reset email';
+        toast.error(message);
+      } else {
+        toast.error('An unexpected error occurred.');
+      }
     } finally {
       setIsLoading(false);
     }

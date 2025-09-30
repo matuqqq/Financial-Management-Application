@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Bell, Globe, Moon, Sun, Shield, Database, Download } from 'lucide-react';
+import { Bell, Globe, Shield, Database, Download } from 'lucide-react';
 
 export default function Settings() {
   const [notifications, setNotifications] = useState({

@@ -45,6 +45,7 @@ const mockItem = {
 
 export default function ItemDetail() {
   const { id } = useParams<{ id: string }>();
+  console.log('Item ID:', id);
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -72,9 +73,10 @@ export default function ItemDetail() {
     try {
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000));
+      console.log('Updating with:', data);
       toast.success('Transaction updated successfully!');
       setIsEditing(false);
-    } catch (error: any) {
+    } catch {
       toast.error('Failed to update transaction');
     } finally {
       setIsLoading(false);
@@ -92,7 +94,7 @@ export default function ItemDetail() {
       await new Promise(resolve => setTimeout(resolve, 1000));
       toast.success('Transaction deleted successfully!');
       navigate('/items');
-    } catch (error: any) {
+    } catch {
       toast.error('Failed to delete transaction');
     } finally {
       setIsDeleting(false);

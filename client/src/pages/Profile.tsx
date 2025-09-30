@@ -46,7 +46,7 @@ export default function Profile() {
     setIsLoading(true);
     try {
       await updateProfile(data);
-    } catch (error) {
+    } catch {
       // Error handled in auth context
     } finally {
       setIsLoading(false);
@@ -58,9 +58,10 @@ export default function Profile() {
     try {
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000));
+      console.log('Updating password with:', data);
       toast.success('Password updated successfully!');
       passwordForm.reset();
-    } catch (error: any) {
+    } catch {
       toast.error('Failed to update password');
     } finally {
       setIsPasswordLoading(false);

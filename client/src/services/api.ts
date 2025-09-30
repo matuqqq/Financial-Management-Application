@@ -1,5 +1,4 @@
 import axios from 'axios';
-import toast from 'react-hot-toast';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
 
@@ -60,5 +59,16 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// Categories
+export const getCategories = () => api.get('/categories');
+export const createCategory = (name: string) => api.post('/categories', { name });
+export const deleteCategory = (id: number) => api.delete(`/categories/${id}`);
+
+// Items
+export const getItems = (params: any) => api.get('/items', { params });
+export const createItem = (data: any) => api.post('/items', data);
+export const getItemStats = (params: any) => api.get('/items/stats', { params });
+export const deleteItem = (id: number) => api.delete(`/items/${id}`);
 
 export default api;

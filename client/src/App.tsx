@@ -14,6 +14,7 @@ import Items from './pages/Items';
 import ItemDetail from './pages/ItemDetail';
 import CreateItem from './pages/CreateItem';
 import Settings from './pages/Settings';
+import Categories from './pages/Categories';
 import LoadingSpinner from './components/LoadingSpinner';
 
 function App() {
@@ -52,6 +53,7 @@ function App() {
             <Route path="/items/new" element={<CreateItem />} />
             <Route path="/items/:id" element={<ItemDetail />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/categories" element={<Categories />} />
           </Route>
         </Route>
 

@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
+import { AxiosError } from 'axios';
 
 interface User {
   id: number;
@@ -38,7 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const response = await api.get('/users/me');
       setUser(response.data.user);
-    } catch (error) {
+    } catch {
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
     } finally {
@@ -56,9 +57,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(userData);
       
       toast.success('Welcome back!');
-    } catch (error: any) {
-      const message = error.response?.data?.error?.message || 'Login failed';
-      toast.error(message);
+    } catch (error) {
+      if (error instanceof AxiosError) {
+        const message = error.response?.data?.error?.message || 'Login failed';
+        toast.error(message);
+      } else {
+        toast.error('An unexpected error occurred.');
+      }
       throw error;
     }
   };
@@ -73,9 +78,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(userData);
       
       toast.success('Account created successfully!');
-    } catch (error: any) {
-      const message = error.response?.data?.error?.message || 'Registration failed';
-      toast.error(message);
+    } catch (error) {
+      if (error instanceof AxiosError) {
+        const message = error.response?.data?.error?.message || 'Registration failed';
+        toast.error(message);
+      } else {
+        toast.error('An unexpected error occurred.');
+      }
       throw error;
     }
   };
@@ -101,9 +110,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const response = await api.patch('/users/me', data);
       setUser(response.data.user);
       toast.success('Profile updated successfully');
-    } catch (error: any) {
-      const message = error.response?.data?.error?.message || 'Update failed';
-      toast.error(message);
+    } catch (error) {
+      if (error instanceof AxiosError) {
+        const message = error.response?.data?.error?.message || 'Update failed';
+        toast.error(message);
+      } else {
+        toast.error('An unexpected error occurred.');
+      }
       throw error;
     }
   };

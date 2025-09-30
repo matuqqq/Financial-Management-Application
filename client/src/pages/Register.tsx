@@ -40,7 +40,7 @@ export default function Register() {
     try {
       await registerUser(data.email, data.password, data.name);
       navigate('/');
-    } catch (error) {
+    } catch {
       // Error handled in auth context
     } finally {
       setIsLoading(false);
