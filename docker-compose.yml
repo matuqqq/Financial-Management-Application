@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  # Frontend
+  client:
+    build:
+      context: .
+      dockerfile: Dockerfile.client
+    ports:
+      - "3000:80"
+    depends_on:
+      - server
+    environment:
+      - VITE_API_URL=http://localhost:5000/api/v1
+
+  # Backend
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    ports:
+      - "5000:5000"
+    environment:
+      - DATABASE_URL=file:./data/production.db
+      - JWT_SECRET=your-production-jwt-secret
+      - JWT_REFRESH_SECRET=your-production-refresh-secret
+      - NODE_ENV=production
+      - FRONTEND_URL=http://localhost:3000
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+    volumes:
+      - server_data:/app/data
+      - server_uploads:/app/uploads
+      - server_logs:/app/logs
+    command: >
+      sh -c "npx prisma migrate deploy &&
+             npx prisma db seed &&
+             npm start"
+
+volumes:
+  server_data:
+  server_uploads:
+  server_logs:

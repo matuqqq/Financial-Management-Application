@@ -1,0 +1,96 @@
+/*
+  # Financial Management Database Schema
+
+  1. New Tables
+    - `User` - User accounts with authentication
+      - `id` (Int, primary key, auto-increment)
+      - `email` (String, unique)
+      - `name` (String, optional)
+      - `password` (String, hashed)
+      - `role` (String, default "user")
+      - `createdAt`, `updatedAt` (DateTime)
+    
+    - `RefreshToken` - JWT refresh tokens
+      - `id` (Int, primary key)
+      - `tokenHash` (String, hashed token)
+      - `userId` (Int, foreign key to User)
+      - `expiresAt` (DateTime)
+      - `createdAt` (DateTime)
+    
+    - `Category` - Transaction categories
+      - `id` (Int, primary key)
+      - `name` (String)
+    
+    - `Item` - Financial transactions
+      - `id` (Int, primary key)
+      - `title` (String)
+      - `amount` (Float)
+      - `type` (String, "income" or "expense")
+      - `date` (DateTime)
+      - `notes` (String, optional)
+      - `userId` (Int, foreign key to User)
+      - `categoryId` (Int, optional foreign key to Category)
+      - `createdAt`, `updatedAt` (DateTime)
+
+  2. Security
+    - All tables will have RLS policies applied
+    - Users can only access their own data
+    - Authentication required for all operations
+
+  3. Relationships
+    - User has many Items
+    - User has many RefreshTokens
+    - Category has many Items
+    - Item belongs to User and optionally to Category
+*/
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            Int            @id @default(autoincrement())
+  email         String         @unique
+  name          String?
+  password      String
+  role          String         @default("user")
+  items         Item[]
+  refreshTokens RefreshToken[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  tokenHash String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    Int
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model Category {
+  id    Int    @id @default(autoincrement())
+  name  String @unique
+  items Item[]
+}
+
+model Item {
+  id         Int       @id @default(autoincrement())
+  title      String
+  amount     Float
+  type       String    // "income" | "expense"
+  date       DateTime
+  notes      String?
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     Int
+  category   Category? @relation(fields: [categoryId], references: [id])
+  categoryId Int?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
