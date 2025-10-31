@@ -24,7 +24,7 @@ router.get('/',
       to: Joi.date().iso().optional(),
       category: Joi.number().integer().optional(),
       type: Joi.string().valid('income', 'expense').optional(),
-      search: Joi.string().optional(),
+      search: Joi.string().allow('').optional(),
     }),
   }),
   getItems

@@ -37,7 +37,7 @@ export default function Sidebar({ open, setOpen }: SidebarProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={() => setOpen(false)}
+            onClick={() => setOpen(true)}
           />
         )}
       </AnimatePresence>
@@ -64,7 +64,7 @@ export default function Sidebar({ open, setOpen }: SidebarProps) {
             </div>
             <button
               className="lg:hidden p-2 rounded-lg hover:bg-secondary-100"
-              onClick={() => setOpen(false)}
+              onClick={() => setOpen(true)}
             >
               <X className="w-5 h-5" />
             </button>
@@ -95,7 +95,7 @@ export default function Sidebar({ open, setOpen }: SidebarProps) {
                           ? 'bg-primary-100 text-primary-700 border-r-2 border-primary-600'
                           : 'text-secondary-600 hover:bg-secondary-100'
                       }`}
-                      onClick={() => setOpen(false)}
+                      onClick={() => setOpen(true)}
                     >
                       <item.icon className="w-5 h-5 mr-3" />
                       {item.name}

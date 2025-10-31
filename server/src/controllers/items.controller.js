@@ -15,7 +15,7 @@ export const getItems = async (req, res, next) => {
     } = req.query;
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
-    
+
     // Build where clause
     const where = {
       userId,
@@ -27,10 +27,10 @@ export const getItems = async (req, res, next) => {
       }),
       ...(category && { categoryId: parseInt(category) }),
       ...(type && { type }),
-      ...(search && {
+      ...(search && search.trim() !== '' && {
         OR: [
-          { title: { contains: search, mode: 'insensitive' } },
-          { notes: { contains: search, mode: 'insensitive' } },
+          { title: { contains: search.trim(), mode: 'insensitive' } },
+          { notes: { contains: search.trim(), mode: 'insensitive' } },
         ],
       }),
     };
@@ -63,6 +63,7 @@ export const getItems = async (req, res, next) => {
     next(error);
   }
 };
+
 
 export const getItem = async (req, res, next) => {
   try {
