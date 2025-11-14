@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import { TrendingUp, TrendingDown, DollarSign, CreditCard, Pencil } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { getItemStats, getItems } from '../services/api';
+import { getItemStats } from '../services/api'; // Eliminamos getItems ya que no se usa aquí
 import LoadingSpinner from '../components/LoadingSpinner';
 import { Link } from 'react-router-dom';
 
@@ -17,20 +17,22 @@ interface Item {
 }
 
 export default function Dashboard() {
+  // Solo necesitamos una query, ya que getItemStats ahora devuelve todo
   const { data: statsData, isLoading: isLoadingStats } = useQuery({ 
     queryKey: ['item-stats'], 
     queryFn: () => getItemStats({ year: new Date().getFullYear() })
   });
 
-  const { data: recentItemsData, isLoading: isLoadingRecentItems } = useQuery<{ data: { items: Item[] } }>({ 
-    queryKey: ['items', { limit: 5 }], 
-    queryFn: () => getItems({ limit: 5 })
-  });
+  // Eliminamos la query para getItems, ya que statsData lo incluirá
 
-  const stats = statsData?.data;
-  const recentItems = recentItemsData?.data.items || [];
+  const stats = statsData?.data.data;
+  // Obtenemos recentItems directamente de la respuesta de stats
+  const recentItems = stats?.recentItems || [];
 
-  if (isLoadingStats || isLoadingRecentItems) {
+  console.log(recentItems);
+
+  // Simplificamos el estado de carga
+  if (isLoadingStats) {
     return (
       <div className="flex justify-center items-center h-64">
         <LoadingSpinner size="lg" />
@@ -40,7 +42,9 @@ export default function Dashboard() {
 
   const totalIncome = typeof stats?.totalIncome === 'number' ? stats.totalIncome : 0;
   const totalExpense = typeof stats?.totalExpense === 'number' ? stats.totalExpense : 0;
-  const netSavings = totalIncome - totalExpense;
+  // Usamos el netSavings calculado por el backend
+  const netSavings = typeof stats?.netSavings === 'number' ? stats.netSavings : 0;
+  
   const statCards = [
     {
       name: 'Total Income',
@@ -203,7 +207,7 @@ export default function Dashboard() {
           </a>
         </div>
         <div className="space-y-4">
-          {recentItems.map((transaction, index) => (
+          {recentItems.map((transaction : any, index : any) => (
             <motion.div
               key={index}
               initial={{ opacity: 0, x: -20 }}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react'; // Importar useEffect
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -17,20 +17,70 @@ interface Item {
   notes: string | null;
 }
 
+// Definimos la estructura de la respuesta de la API (con el doble 'data' y 'meta')
+interface ItemsApiResponse {
+  data: {
+    data: {
+      items: Item[];
+      meta: {
+        total: number;
+        page: number;
+        limit: number;
+        totalPages: number;
+      };
+    };
+  };
+}
+
 export default function Items() {
   const queryClient = useQueryClient();
+  
+  // Estados para los filtros y paginación
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
   const [filterType, setFilterType] = useState('all');
+  const [page, setPage] = useState(1);
+  const limit = 10; // Definir un límite por página
 
-  const { data: itemsData, isLoading } = useQuery<{ data: { items: Item[], total: number } }>({ 
-    queryKey: ['items', { search: searchTerm, type: filterType === 'all' ? undefined : filterType }], 
-    queryFn: () => getItems({ search: searchTerm, type: filterType === 'all' ? undefined : filterType })
+  // Efecto para el debounce del buscador
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+      setPage(1); // Resetear a la página 1 al buscar
+    }, 500); // 500ms de retraso
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [searchTerm]);
+
+  const { data: itemsData, isLoading } = useQuery<ItemsApiResponse>({ 
+    queryKey: [
+      'items', 
+      { 
+        search: debouncedSearch, // Usar el término con debounce
+        type: filterType === 'all' ? undefined : filterType,
+        page,
+        limit
+      }
+    ], 
+    queryFn: () => getItems({ 
+      search: debouncedSearch,
+      type: filterType === 'all' ? undefined : filterType,
+      page,
+      limit
+    }),
+    keepPreviousData: true // Mantiene los datos anteriores mientras carga los nuevos
   });
-  const items = itemsData?.data.items || [];
+
+  // Acceder a los datos con la estructura anidada correcta
+  const items = itemsData?.data?.data?.items || [];
+  const meta = itemsData?.data?.data?.meta;
 
   const deleteItemMutation = useMutation({
     mutationFn: deleteItem,
     onSuccess: () => {
+      // Invalidar queries de 'items' y 'item-stats' para refrescar
       queryClient.invalidateQueries({ queryKey: ['items'] });
       queryClient.invalidateQueries({ queryKey: ['item-stats'] });
       toast.success('Transaction deleted successfully!');
@@ -44,6 +94,26 @@ export default function Items() {
     if (confirm('Are you sure you want to delete this transaction?')) {
       deleteItemMutation.mutate(id);
     }
+  };
+
+  // Manejador para el cambio de filtro de tipo
+  const handleFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setFilterType(e.target.value);
+    setPage(1); // Resetear a la página 1
+  };
+
+  // Variables de paginación
+  const totalPages = meta?.totalPages || 1;
+  const currentPage = meta?.page || 1;
+  const totalResults = meta?.total || 0;
+
+  // Manejadores de paginación
+  const handlePreviousPage = () => {
+    setPage((prev) => Math.max(prev - 1, 1));
+  };
+
+  const handleNextPage = () => {
+    setPage((prev) => Math.min(prev + 1, totalPages));
   };
 
   return (
@@ -91,7 +161,7 @@ export default function Items() {
           <div className="flex gap-2">
             <select
               value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
+              onChange={handleFilterChange} // Usar el nuevo manejador
               className="input"
             >
               <option value="all">All Types</option>
@@ -220,14 +290,24 @@ export default function Items() {
         className="flex items-center justify-between"
       >
         <p className="text-sm text-secondary-600">
-          Showing 1 to {items.length} of {itemsData?.data.total || 0} results
+          Showing {(currentPage - 1) * limit + 1} to {Math.min(currentPage * limit, totalResults)} of {totalResults} results
         </p>
         <div className="flex space-x-2">
-          <button className="btn btn-outline" disabled>
+          <button 
+            className="btn btn-outline" 
+            onClick={handlePreviousPage}
+            disabled={currentPage <= 1 || isLoading}
+          >
             Previous
           </button>
-          <button className="btn btn-primary">1</button>
-          <button className="btn btn-outline" disabled>
+          <span className="btn btn-primary pointer-events-none">
+            {currentPage}
+          </span>
+          <button 
+            className="btn btn-outline" 
+            onClick={handleNextPage}
+            disabled={currentPage >= totalPages || isLoading}
+          >
             Next
           </button>
         </div>

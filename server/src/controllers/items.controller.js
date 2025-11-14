@@ -12,6 +12,8 @@ export const getItems = async (req, res, next) => {
       category,
       type,
       search,
+      sortBy = 'date',
+      sortOrder = 'desc',
     } = req.query;
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
@@ -19,14 +21,12 @@ export const getItems = async (req, res, next) => {
     // Build where clause
     const where = {
       userId,
-      ...(from && to && {
-        date: {
-          gte: new Date(from),
-          lte: new Date(to),
-        },
-      }),
-      ...(category && { categoryId: parseInt(category) }),
-      ...(type && { type }),
+      date: {
+        ...(from && { gte: new Date(from) }),
+        ...(to && { lte: new Date(to) }),
+      },
+      ...(category && category !== 'all' && { categoryId: parseInt(category) }),
+      ...(type && type !== 'all' && { type }),
       ...(search && search.trim() !== '' && {
         OR: [
           { title: { contains: search.trim(), mode: 'insensitive' } },
@@ -34,6 +34,10 @@ export const getItems = async (req, res, next) => {
         ],
       }),
     };
+
+    if (!from && !to) {
+      delete where.date;
+    }
 
     const [items, total] = await Promise.all([
       prisma.item.findMany({
@@ -43,7 +47,7 @@ export const getItems = async (req, res, next) => {
             select: { id: true, name: true },
           },
         },
-        orderBy: { date: 'desc' },
+        orderBy: { [sortBy]: sortOrder },
         skip,
         take: parseInt(limit),
       }),
@@ -51,13 +55,15 @@ export const getItems = async (req, res, next) => {
     ]);
 
     res.status(200).json({
-      items,
-      meta: {
-        total,
-        page: parseInt(page),
-        limit: parseInt(limit),
-        totalPages: Math.ceil(total / parseInt(limit)),
-      },
+      data: {
+        items,
+        meta: {
+          total,
+          page: parseInt(page),
+          limit: parseInt(limit),
+          totalPages: Math.ceil(total / parseInt(limit)),
+        },
+      }
     });
   } catch (error) {
     next(error);
@@ -201,57 +207,103 @@ export const deleteItem = async (req, res, next) => {
 export const getItemStats = async (req, res, next) => {
   try {
     const userId = req.user.id;
-    const { year, month } = req.query;
+    const { year = new Date().getFullYear() } = req.query;
 
-    let dateFilter = {};
-    if (year) {
-      const startDate = new Date(parseInt(year), month ? parseInt(month) - 1 : 0, 1);
-      const endDate = month 
-        ? new Date(parseInt(year), parseInt(month), 0)
-        : new Date(parseInt(year) + 1, 0, 0);
-      
-      dateFilter = {
-        date: {
-          gte: startDate,
-          lte: endDate,
-        },
-      };
-    }
+    const startDate = new Date(parseInt(year), 0, 1);
+    const endDate = new Date(parseInt(year) + 1, 0, 1);
 
-    const [incomeStats, expenseStats, categoryStats] = await Promise.all([
-      prisma.item.aggregate({
-        where: { userId, type: 'income', ...dateFilter },
-        _sum: { amount: true },
-        _count: true,
-      }),
-      prisma.item.aggregate({
-        where: { userId, type: 'expense', ...dateFilter },
-        _sum: { amount: true },
-        _count: true,
-      }),
-      prisma.item.groupBy({
-        by: ['categoryId'],
-        where: { userId, ...dateFilter },
-        _sum: { amount: true },
-        _count: true,
-      }),
-    ]);
-
-    const stats = {
-      income: {
-        total: incomeStats._sum.amount || 0,
-        count: incomeStats._count,
+    const dateFilter = {
+      userId,
+      date: {
+        gte: startDate,
+        lte: endDate,
       },
-      expense: {
-        total: expenseStats._sum.amount || 0,
-        count: expenseStats._count,
-      },
-      net: (incomeStats._sum.amount || 0) - (expenseStats._sum.amount || 0),
-      categories: categoryStats,
     };
 
+    // 1. Total Income, Expenses, and Transactions
+    const totalStats = await prisma.item.groupBy({
+      by: ['type'],
+      where: dateFilter,
+      _sum: { amount: true },
+      _count: { id: true },
+    });
+
+    const totalIncome = totalStats.find(s => s.type === 'income')?._sum.amount || 0;
+    const totalExpense = totalStats.find(s => s.type === 'expense')?._sum.amount || 0;
+    const totalTransactions = totalStats.reduce((acc, s) => acc + s._count.id, 0);
+
+    // 2. Monthly Summary (Income vs Expense)
+    const monthlyData = await prisma.item.findMany({
+      where: dateFilter,
+      select: {
+        amount: true,
+        type: true,
+        date: true,
+      },
+    });
+
+    const monthlySummary = Array.from({ length: 12 }, (_, i) => ({
+      month: new Date(0, i).toLocaleString('default', { month: 'short' }),
+      income: 0,
+      expense: 0,
+    }));
+
+    monthlyData.forEach(item => {
+      const monthIndex = item.date.getMonth();
+      if (item.type === 'income') {
+        monthlySummary[monthIndex].income += item.amount;
+      } else {
+        monthlySummary[monthIndex].expense += item.amount;
+      }
+    });
+    
+    // 3. Category Summary
+    const categoryData = await prisma.item.groupBy({
+      by: ['categoryId'],
+      where: { ...dateFilter, type: 'expense' },
+      _sum: { amount: true },
+    });
+
+    const categories = await prisma.category.findMany({
+      select: { id: true, name: true },
+    });
+
+    const categoryMap = categories.reduce((acc, cat) => {
+      acc[cat.id] = cat.name;
+      return acc;
+    }, {});
+
+    const categorySummary = categoryData
+      .map(item => ({
+        name: categoryMap[item.categoryId] || 'Uncategorized',
+        value: item._sum.amount,
+      }))
+      .sort((a, b) => b.value - a.value);
+
+    // 4. Recent Items (already have a separate endpoint, but can be combined)
+    const recentItems = await prisma.item.findMany({
+      where: { userId },
+      orderBy: { date: 'desc' },
+      take: 5,
+      select: {
+        id: true,
+        title: true,
+        amount: true,
+        type: true,
+        date: true,
+      },
+    });
+
     res.status(200).json({
-      stats,
+      data: {
+        totalIncome,
+        totalExpense,
+        netSavings: totalIncome - totalExpense,
+        totalTransactions,
+        monthlySummary,
+        categorySummary,
+        recentItems,
+      },
     });
   } catch (error) {
     next(error);
