@@ -67,8 +67,10 @@ export const deleteCategory = (id: number) => api.delete(`/categories/${id}`);
 
 // Items
 export const getItems = (params: any) => api.get('/items', { params });
+export const getItem = (id: string) => api.get(`/items/${id}`);
 export const createItem = (data: any) => api.post('/items', data);
 export const getItemStats = (params: any) => api.get('/items/stats', { params });
 export const deleteItem = (id: number) => api.delete(`/items/${id}`);
+export const updateItem = (id: number, data: any) => api.patch(`/items/${id}`, data);
 
 export default api;

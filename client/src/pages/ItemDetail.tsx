@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useForm } from 'react-hook-form';
@@ -7,49 +7,36 @@ import { z } from 'zod';
 import { ArrowLeft, Edit3, Trash2 } from 'lucide-react';
 import LoadingSpinner from '../components/LoadingSpinner';
 import toast from 'react-hot-toast';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getItem, updateItem, deleteItem, getCategories } from '../services/api';
 
 const itemSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   amount: z.number().min(0.01, 'Amount must be greater than 0'),
   type: z.enum(['income', 'expense']),
-  categoryId: z.string().optional(),
+  categoryId: z.coerce.number().optional(),
   date: z.string().min(1, 'Date is required'),
   notes: z.string().optional(),
 });
 
 type ItemFormData = z.infer<typeof itemSchema>;
 
-const categories = [
-  { id: '1', name: 'Food' },
-  { id: '2', name: 'Transport' },
-  { id: '3', name: 'Entertainment' },
-  { id: '4', name: 'Shopping' },
-  { id: '5', name: 'Bills' },
-  { id: '6', name: 'Salary' },
-  { id: '7', name: 'Freelance' },
-];
-
-// Mock data - in real app this would come from API
-const mockItem = {
-  id: 1,
-  title: 'Grocery Shopping',
-  amount: 85.00,
-  type: 'expense' as const,
-  category: 'Food',
-  categoryId: '1',
-  date: '2025-01-15',
-  notes: 'Weekly groceries from supermarket',
-  createdAt: '2025-01-15T10:30:00Z',
-  updatedAt: '2025-01-15T10:30:00Z',
-};
-
 export default function ItemDetail() {
   const { id } = useParams<{ id: string }>();
-  console.log('Item ID:', id);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+
+  const { data: itemData, isLoading: isLoadingItem } = useQuery({
+    queryKey: ['item', id],
+    queryFn: () => getItem(id!),
+    enabled: !!id,
+  });
+
+  const { data: categoriesData } = useQuery({
+    queryKey: ['categories'],
+    queryFn: getCategories,
+  });
 
   const {
     register,
@@ -58,53 +45,87 @@ export default function ItemDetail() {
     reset,
   } = useForm<ItemFormData>({
     resolver: zodResolver(itemSchema),
-    defaultValues: {
-      title: mockItem.title,
-      amount: mockItem.amount,
-      type: mockItem.type,
-      categoryId: mockItem.categoryId,
-      date: mockItem.date,
-      notes: mockItem.notes,
+  });
+
+  useEffect(() => {
+    if (itemData) {
+      const item = itemData.data.item;
+      reset({
+        ...item,
+        date: new Date(item.date).toISOString().split('T')[0],
+      });
+    }
+  }, [itemData, reset]);
+
+  const updateMutation = useMutation({
+    mutationFn: (data: ItemFormData) => updateItem(parseInt(id!), data),
+    onSuccess: () => {
+      toast.success('Transaction updated successfully!');
+      queryClient.invalidateQueries({ queryKey: ['item', id] });
+      queryClient.invalidateQueries({ queryKey: ['items'] });
+      queryClient.invalidateQueries({ queryKey: ['item-stats'] });
+      setIsEditing(false);
+    },
+    onError: () => {
+      toast.error('Failed to update transaction');
     },
   });
 
-  const onSubmit = async (data: ItemFormData) => {
-    setIsLoading(true);
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      console.log('Updating with:', data);
-      toast.success('Transaction updated successfully!');
-      setIsEditing(false);
-    } catch {
-      toast.error('Failed to update transaction');
-    } finally {
-      setIsLoading(false);
-    }
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteItem(parseInt(id!)),
+    onSuccess: () => {
+      toast.success('Transaction deleted successfully!');
+      queryClient.invalidateQueries({ queryKey: ['items'] });
+      queryClient.invalidateQueries({ queryKey: ['item-stats'] });
+      navigate('/items');
+    },
+    onError: () => {
+      toast.error('Failed to delete transaction');
+    },
+  });
+
+  const onSubmit = (data: ItemFormData) => {
+    updateMutation.mutate(data);
   };
 
-  const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this transaction?')) {
-      return;
-    }
-
-    setIsDeleting(true);
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      toast.success('Transaction deleted successfully!');
-      navigate('/items');
-    } catch {
-      toast.error('Failed to delete transaction');
-    } finally {
-      setIsDeleting(false);
+  const handleDelete = () => {
+    if (confirm('Are you sure you want to delete this transaction?')) {
+      deleteMutation.mutate();
     }
   };
 
   const handleCancel = () => {
     setIsEditing(false);
-    reset();
+    if (itemData) {
+      const item = itemData.data.item;
+      reset({
+        ...item,
+        date: new Date(item.date).toISOString().split('T')[0],
+      });
+    }
   };
+
+  if (isLoadingItem) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
+
+  const item = itemData?.data.item;
+  const categories = categoriesData?.data.categories || [];
+
+  if (!item) {
+    return (
+      <div className="text-center">
+        <h2 className="text-2xl font-semibold">Transaction not found</h2>
+        <button onClick={() => navigate('/items')} className="mt-4 btn btn-primary">
+          Go back to transactions
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -143,10 +164,10 @@ export default function ItemDetail() {
             </button>
             <button
               onClick={handleDelete}
-              disabled={isDeleting}
+              disabled={deleteMutation.isPending}
               className="btn bg-red-600 text-white hover:bg-red-700"
             >
-              {isDeleting ? (
+              {deleteMutation.isPending ? (
                 <LoadingSpinner size="sm" className="mr-2" />
               ) : (
                 <Trash2 className="w-4 h-4 mr-2" />
@@ -287,10 +308,10 @@ export default function ItemDetail() {
               </button>
               <button
                 type="submit"
-                disabled={isLoading}
+                disabled={updateMutation.isPending}
                 className="flex-1 btn btn-primary"
               >
-                {isLoading ? (
+                {updateMutation.isPending ? (
                   <LoadingSpinner size="sm" className="mr-2" />
                 ) : null}
                 Save Changes
@@ -304,20 +325,20 @@ export default function ItemDetail() {
             <div className="flex items-center justify-between p-4 bg-secondary-50 rounded-lg">
               <div>
                 <h3 className="text-xl font-semibold text-secondary-900">
-                  {mockItem.title}
+                  {item.title}
                 </h3>
                 <p className="text-secondary-600">
-                  {new Date(mockItem.date).toLocaleDateString()}
+                  {new Date(item.date).toLocaleDateString()}
                 </p>
               </div>
               <div className="text-right">
                 <p className={`text-3xl font-bold ${
-                  mockItem.type === 'income' ? 'text-green-600' : 'text-red-600'
+                  item.type === 'income' ? 'text-green-600' : 'text-red-600'
                 }`}>
-                  {mockItem.type === 'income' ? '+' : '-'}${mockItem.amount.toFixed(2)}
+                  {item.type === 'income' ? '+' : '-'}${item.amount.toFixed(2)}
                 </p>
                 <p className="text-sm text-secondary-500 capitalize">
-                  {mockItem.type}
+                  {item.type}
                 </p>
               </div>
             </div>
@@ -329,7 +350,7 @@ export default function ItemDetail() {
                   Category
                 </label>
                 <p className="text-secondary-900">
-                  {mockItem.category || 'No category'}
+                  {item.category?.name || 'No category'}
                 </p>
               </div>
               <div>
@@ -337,7 +358,7 @@ export default function ItemDetail() {
                   Type
                 </label>
                 <p className="text-secondary-900 capitalize">
-                  {mockItem.type}
+                  {item.type}
                 </p>
               </div>
               <div>
@@ -345,7 +366,7 @@ export default function ItemDetail() {
                   Created
                 </label>
                 <p className="text-secondary-900">
-                  {new Date(mockItem.createdAt).toLocaleString()}
+                  {new Date(item.createdAt).toLocaleString()}
                 </p>
               </div>
               <div>
@@ -353,19 +374,19 @@ export default function ItemDetail() {
                   Last Updated
                 </label>
                 <p className="text-secondary-900">
-                  {new Date(mockItem.updatedAt).toLocaleString()}
+                  {new Date(item.updatedAt).toLocaleString()}
                 </p>
               </div>
             </div>
 
             {/* Notes */}
-            {mockItem.notes && (
+            {item.notes && (
               <div>
                 <label className="block text-sm font-medium text-secondary-500 mb-1">
                   Notes
                 </label>
                 <p className="text-secondary-900 bg-secondary-50 p-3 rounded-lg">
-                  {mockItem.notes}
+                  {item.notes}
                 </p>
               </div>
             )}

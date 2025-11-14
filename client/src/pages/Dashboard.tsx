@@ -1,9 +1,10 @@
 import { motion } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
-import { TrendingUp, TrendingDown, DollarSign, CreditCard } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, CreditCard, Pencil } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { getItemStats, getItems } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { Link } from 'react-router-dom';
 
 const PIE_CHART_COLORS = ['#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6'];
 
@@ -214,11 +215,16 @@ export default function Dashboard() {
                 <p className="font-medium text-secondary-900">{transaction.title}</p>
                 <p className="text-sm text-secondary-500">{new Date(transaction.date).toLocaleDateString()}</p>
               </div>
-              <p className={`font-semibold ${
-                transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
-              }`}>
-                {transaction.type === 'income' ? '+' : '-'}${transaction.amount.toLocaleString()}
-              </p>
+              <div className="flex items-center">
+                <p className={`font-semibold mr-4 ${
+                  transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
+                }`}>
+                  {transaction.type === 'income' ? '+' : '-'}${transaction.amount.toLocaleString()}
+                </p>
+                <Link to={`/items/${transaction.id}`} className="text-secondary-500 hover:text-primary-600">
+                  <Pencil size={18} />
+                </Link>
+              </div>
             </motion.div>
           ))}
         </div>
