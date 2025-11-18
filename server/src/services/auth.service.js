@@ -140,11 +140,19 @@ export class AuthService {
     const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
-    // Store reset token (you might want to create a separate table for this)
-    await prisma.user.update({
-      where: { id: user.id },
+    // Remove existing reset tokens for user
+    await prisma.passwordResetToken.deleteMany({
+      where: {
+        userId: user.id,
+      },
+    });
+
+    // Store hashed reset token
+    await prisma.passwordResetToken.create({
       data: {
-        // Add resetToken and resetTokenExpiry fields to User model if needed
+        tokenHash: resetTokenHash,
+        userId: user.id,
+        expiresAt,
       },
     });
 
@@ -156,10 +164,44 @@ export class AuthService {
 
   async resetPassword(token, newPassword) {
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-    
-    // In a real implementation, you'd have a separate table or fields for reset tokens
-    // For now, we'll throw an error asking for proper implementation
-    throw new AppError('Reset password functionality needs proper implementation', 501);
+
+    const resetTokenRecord = await prisma.passwordResetToken.findFirst({
+      where: {
+        tokenHash,
+        expiresAt: {
+          gt: new Date(),
+        },
+      },
+    });
+
+    if (!resetTokenRecord) {
+      throw new AppError('Invalid or expired reset token', 400, 'INVALID_RESET_TOKEN');
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: resetTokenRecord.userId },
+    });
+
+    if (!user) {
+      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, SALT_ROUNDS);
+
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: user.id },
+        data: { password: hashedPassword },
+      }),
+      prisma.passwordResetToken.deleteMany({
+        where: { userId: user.id },
+      }),
+      prisma.refreshToken.deleteMany({
+        where: { userId: user.id },
+      }),
+    ]);
+
+    return { message: 'Password reset successfully' };
   }
 
   async generateTokens(userId) {

@@ -3,6 +3,9 @@ import helmet from 'helmet';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import morgan from 'morgan';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
 import { celebrate, errors } from 'celebrate';
 
 import authRoutes from './routes/auth.routes.js';
@@ -16,6 +19,13 @@ import { rateLimitMiddleware } from './middlewares/rateLimit.middleware.js';
 import logger from './utils/logger.js';
 
 const app = express();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const uploadsDir = path.join(__dirname, '..', 'uploads');
+
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
 
 // Security middleware
 app.use(helmet({
@@ -41,6 +51,9 @@ app.use('/api', rateLimitMiddleware);
 // Body parsing
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Static files for uploads
+app.use('/uploads', express.static(uploadsDir));
 
 // Logging
 app.use(morgan('combined', { 

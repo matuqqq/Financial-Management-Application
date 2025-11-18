@@ -73,4 +73,16 @@ export const getItemStats = (params: any) => api.get('/items/stats', { params })
 export const deleteItem = (id: number) => api.delete(`/items/${id}`);
 export const updateItem = (id: number, data: any) => api.patch(`/items/${id}`, data);
 
+// Uploads
+export const uploadReceipt = (file: File) => {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  return api.post('/uploads', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+};
+
 export default api;

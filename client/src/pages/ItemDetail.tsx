@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useForm } from 'react-hook-form';
@@ -14,12 +14,19 @@ const itemSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   amount: z.number().min(0.01, 'Amount must be greater than 0'),
   type: z.enum(['income', 'expense']),
+  paymentMethod: z.enum(['cash', 'debit', 'credit']),
   categoryId: z.coerce.number().optional(),
   date: z.string().min(1, 'Date is required'),
   notes: z.string().optional(),
 });
 
 type ItemFormData = z.infer<typeof itemSchema>;
+
+const PAYMENT_METHOD_LABELS = {
+  cash: 'Cash',
+  debit: 'Debit',
+  credit: 'Credit',
+};
 
 export default function ItemDetail() {
   const { id } = useParams<{ id: string }>();
@@ -45,6 +52,9 @@ export default function ItemDetail() {
     reset,
   } = useForm<ItemFormData>({
     resolver: zodResolver(itemSchema),
+    defaultValues: {
+      paymentMethod: 'cash',
+    },
   });
 
   useEffect(() => {
@@ -53,6 +63,7 @@ export default function ItemDetail() {
       reset({
         ...item,
         date: new Date(item.date).toISOString().split('T')[0],
+        paymentMethod: item.paymentMethod,
       });
     }
   }, [itemData, reset]);
@@ -84,8 +95,16 @@ export default function ItemDetail() {
     },
   });
 
+  const normalizeDateForApi = (date: string) => {
+    return new Date(`${date}T00:00:00`).toISOString();
+  };
+
   const onSubmit = (data: ItemFormData) => {
-    updateMutation.mutate(data);
+    const payload = {
+      ...data,
+      date: normalizeDateForApi(data.date),
+    };
+    updateMutation.mutate(payload);
   };
 
   const handleDelete = () => {
@@ -140,6 +159,7 @@ export default function ItemDetail() {
           <button
             onClick={() => navigate('/items')}
             className="p-2 rounded-lg hover:bg-secondary-100 transition-colors mr-4"
+            aria-label="Back to transactions"
           >
             <ArrowLeft className="w-6 h-6" />
           </button>
@@ -284,6 +304,21 @@ export default function ItemDetail() {
               </select>
             </div>
 
+            {/* Payment Method */}
+            <div>
+              <label className="block text-sm font-medium text-secondary-700 mb-2">
+                Payment Method
+              </label>
+              <select {...register('paymentMethod')} className="input">
+                <option value="cash">Cash</option>
+                <option value="debit">Debit</option>
+                <option value="credit">Credit</option>
+              </select>
+              {errors.paymentMethod && (
+                <p className="form-error">{errors.paymentMethod.message}</p>
+              )}
+            </div>
+
             {/* Notes */}
             <div>
               <label htmlFor="notes" className="block text-sm font-medium text-secondary-700 mb-2">
@@ -390,6 +425,33 @@ export default function ItemDetail() {
                 </p>
               </div>
             )}
+
+            {/* Attachment */}
+            {item.attachmentUrl && (
+              <div>
+                <label className="block text-sm font-medium text-secondary-500 mb-1">
+                  Receipt
+                </label>
+                <a
+                  href={item.attachmentUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center text-primary-600 underline"
+                >
+                  View attachment
+                </a>
+              </div>
+            )}
+
+            {/* Payment Method */}
+            <div>
+              <label className="block text-sm font-medium text-secondary-500 mb-1">
+                Payment Method
+              </label>
+              <p className="text-secondary-900">
+                {PAYMENT_METHOD_LABELS[item.paymentMethod]}
+              </p>
+            </div>
           </div>
         )}
       </motion.div>

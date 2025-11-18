@@ -5,6 +5,7 @@ import {
   updateMe,
   deleteMe,
   getUserStats,
+  changePassword,
 } from '../controllers/users.controller.js';
 import { authenticate } from '../middlewares/auth.middleware.js';
 
@@ -28,5 +29,15 @@ router.patch('/me',
 router.delete('/me', deleteMe);
 
 router.get('/me/stats', getUserStats);
+
+router.patch('/me/password',
+  celebrate({
+    body: Joi.object({
+      oldPassword: Joi.string().required(),
+      newPassword: Joi.string().min(6).required(),
+    }),
+  }),
+  changePassword
+);
 
 export default router;

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -6,7 +6,6 @@ import { z } from 'zod';
 import { User, Lock, Mail, Save } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import LoadingSpinner from '../components/LoadingSpinner';
-import toast from 'react-hot-toast';
 
 const profileSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -26,7 +25,7 @@ type ProfileFormData = z.infer<typeof profileSchema>;
 type PasswordFormData = z.infer<typeof passwordSchema>;
 
 export default function Profile() {
-  const { user, updateProfile } = useAuth();
+  const { user, updateProfile, changePassword } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [isPasswordLoading, setIsPasswordLoading] = useState(false);
 
@@ -56,13 +55,13 @@ export default function Profile() {
   const onPasswordSubmit = async (data: PasswordFormData) => {
     setIsPasswordLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      console.log('Updating password with:', data);
-      toast.success('Password updated successfully!');
+      await changePassword({
+        oldPassword: data.oldPassword,
+        newPassword: data.newPassword,
+      });
       passwordForm.reset();
     } catch {
-      toast.error('Failed to update password');
+      // Error toast handled in context
     } finally {
       setIsPasswordLoading(false);
     }

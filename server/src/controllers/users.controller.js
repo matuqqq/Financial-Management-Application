@@ -1,5 +1,8 @@
 import { prisma } from '../config/database.js';
 import { AppError } from '../middlewares/error.middleware.js';
+import { AuthService } from '../services/auth.service.js';
+
+const authService = new AuthService();
 
 export const getMe = async (req, res, next) => {
   try {
@@ -106,6 +109,20 @@ export const getUserStats = async (req, res, next) => {
 
     res.status(200).json({
       stats,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const changePassword = async (req, res, next) => {
+  try {
+    const { oldPassword, newPassword } = req.body;
+
+    await authService.changePassword(req.user.id, oldPassword, newPassword);
+
+    res.status(200).json({
+      message: 'Password updated successfully',
     });
   } catch (error) {
     next(error);

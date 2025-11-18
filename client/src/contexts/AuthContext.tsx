@@ -17,6 +17,7 @@ interface AuthContextType {
   register: (email: string, password: string, name: string) => Promise<void>;
   logout: () => void;
   updateProfile: (data: Partial<User>) => Promise<void>;
+  changePassword: (payload: { oldPassword: string; newPassword: string }) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -121,6 +122,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const changePassword = async (payload: { oldPassword: string; newPassword: string }) => {
+    try {
+      await api.patch('/users/me/password', payload);
+      toast.success('Password updated successfully');
+    } catch (error) {
+      if (error instanceof AxiosError) {
+        const message = error.response?.data?.error?.message || 'Failed to update password';
+        toast.error(message);
+      } else {
+        toast.error('An unexpected error occurred.');
+      }
+      throw error;
+    }
+  };
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -129,6 +145,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       register,
       logout,
       updateProfile,
+      changePassword,
     }}>
       {children}
     </AuthContext.Provider>

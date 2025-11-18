@@ -11,6 +11,7 @@ export const getItems = async (req, res, next) => {
       to,
       category,
       type,
+      paymentMethod,
       search,
       sortBy = 'date',
       sortOrder = 'desc',
@@ -27,6 +28,7 @@ export const getItems = async (req, res, next) => {
       },
       ...(category && category !== 'all' && { categoryId: parseInt(category) }),
       ...(type && type !== 'all' && { type }),
+      ...(paymentMethod && paymentMethod !== 'all' && { paymentMethod }),
       ...(search && search.trim() !== '' && {
         OR: [
           { title: { contains: search.trim(), mode: 'insensitive' } },
@@ -39,7 +41,7 @@ export const getItems = async (req, res, next) => {
       delete where.date;
     }
 
-    const [items, total] = await Promise.all([
+    const [items, total, totalsByType] = await Promise.all([
       prisma.item.findMany({
         where,
         include: {
@@ -52,7 +54,15 @@ export const getItems = async (req, res, next) => {
         take: parseInt(limit),
       }),
       prisma.item.count({ where }),
+      prisma.item.groupBy({
+        by: ['type'],
+        where,
+        _sum: { amount: true },
+      }),
     ]);
+
+    const totalIncome = totalsByType.find(item => item.type === 'income')?._sum.amount || 0;
+    const totalExpense = totalsByType.find(item => item.type === 'expense')?._sum.amount || 0;
 
     res.status(200).json({
       data: {
@@ -62,6 +72,10 @@ export const getItems = async (req, res, next) => {
           page: parseInt(page),
           limit: parseInt(limit),
           totalPages: Math.ceil(total / parseInt(limit)),
+        },
+        totals: {
+          income: totalIncome,
+          expense: totalExpense,
         },
       }
     });
@@ -103,7 +117,7 @@ export const getItem = async (req, res, next) => {
 export const createItem = async (req, res, next) => {
   try {
     const userId = req.user.id;
-    const { title, amount, type, categoryId, date, notes } = req.body;
+    const { title, amount, type, categoryId, date, notes, attachmentUrl, paymentMethod } = req.body;
 
     const item = await prisma.item.create({
       data: {
@@ -112,6 +126,8 @@ export const createItem = async (req, res, next) => {
         type,
         date: new Date(date),
         notes,
+        attachmentUrl,
+        paymentMethod,
         userId,
         ...(categoryId && { categoryId: parseInt(categoryId) }),
       },
@@ -135,7 +151,7 @@ export const updateItem = async (req, res, next) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
-    const { title, amount, type, categoryId, date, notes } = req.body;
+    const { title, amount, type, categoryId, date, notes, attachmentUrl, paymentMethod } = req.body;
 
     // Check if item exists and belongs to user
     const existingItem = await prisma.item.findFirst({
@@ -157,6 +173,8 @@ export const updateItem = async (req, res, next) => {
         ...(type !== undefined && { type }),
         ...(date !== undefined && { date: new Date(date) }),
         ...(notes !== undefined && { notes }),
+        ...(attachmentUrl !== undefined && { attachmentUrl }),
+        ...(paymentMethod !== undefined && { paymentMethod }),
         ...(categoryId !== undefined && { 
           categoryId: categoryId ? parseInt(categoryId) : null 
         }),

@@ -1,11 +1,21 @@
 import multer from 'multer';
 import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
 import { AppError } from '../middlewares/error.middleware.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const uploadsDir = path.join(__dirname, '..', '..', 'uploads');
+
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'uploads/');
+    cb(null, uploadsDir);
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -14,19 +24,23 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (req, file, cb) => {
-  // Allow only images
-  if (file.mimetype.startsWith('image/')) {
+  // Allow images and PDFs
+  if (
+    file.mimetype.startsWith('image/') ||
+    file.mimetype === 'application/pdf'
+  ) {
     cb(null, true);
   } else {
-    cb(new AppError('Only image files are allowed', 400, 'INVALID_FILE_TYPE'), false);
+    cb(new AppError('Only image or PDF files are allowed', 400, 'INVALID_FILE_TYPE'), false);
   }
 };
+
 
 export const upload = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB limit
+    fileSize: 20 * 1024 * 1024, // 20MB limit
   },
 });
 
@@ -36,7 +50,8 @@ export const uploadFile = async (req, res, next) => {
       throw new AppError('No file uploaded', 400, 'NO_FILE');
     }
 
-    const fileUrl = `/uploads/${req.file.filename}`;
+    const relativePath = path.join('uploads', req.file.filename).replace(/\\/g, '/');
+    const fileUrl = `${req.protocol}://${req.get('host')}/${relativePath}`;
 
     res.status(200).json({
       message: 'File uploaded successfully',
@@ -45,6 +60,7 @@ export const uploadFile = async (req, res, next) => {
         originalname: req.file.originalname,
         mimetype: req.file.mimetype,
         size: req.file.size,
+        path: `/${relativePath}`,
         url: fileUrl,
       },
     });
