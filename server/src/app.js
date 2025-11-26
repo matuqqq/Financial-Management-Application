@@ -13,6 +13,7 @@ import userRoutes from './routes/users.routes.js';
 import itemRoutes from './routes/items.routes.js';
 import categoryRoutes from './routes/categories.routes.js';
 import uploadRoutes from './routes/uploads.routes.js';
+import summaryRoutes from './routes/summary.routes.js';
 
 import { errorHandler } from './middlewares/error.middleware.js';
 import { rateLimitMiddleware } from './middlewares/rateLimit.middleware.js';
@@ -77,6 +78,7 @@ app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/items', itemRoutes);
 app.use('/api/v1/categories', categoryRoutes);
 app.use('/api/v1/uploads', uploadRoutes);
+app.use('/api/v1/summary', summaryRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {

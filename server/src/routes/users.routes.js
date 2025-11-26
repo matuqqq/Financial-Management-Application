@@ -6,6 +6,7 @@ import {
   deleteMe,
   getUserStats,
   changePassword,
+  updateSavingsGoal,
 } from '../controllers/users.controller.js';
 import { authenticate } from '../middlewares/auth.middleware.js';
 
@@ -38,6 +39,15 @@ router.patch('/me/password',
     }),
   }),
   changePassword
+);
+
+router.patch('/me/savings-goal',
+  celebrate({
+    body: Joi.object({
+      savingsGoal: Joi.number().positive().required(),
+    }),
+  }),
+  updateSavingsGoal
 );
 
 export default router;

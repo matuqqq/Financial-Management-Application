@@ -73,6 +73,9 @@ export const getItemStats = (params: any) => api.get('/items/stats', { params })
 export const deleteItem = (id: number) => api.delete(`/items/${id}`);
 export const updateItem = (id: number, data: any) => api.patch(`/items/${id}`, data);
 
+// Summary
+export const getMonthlySummary = () => api.get('/summary/monthly');
+
 // Uploads
 export const uploadReceipt = (file: File) => {
   const formData = new FormData();

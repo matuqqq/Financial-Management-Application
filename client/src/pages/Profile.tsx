@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { User, Lock, Mail, Save } from 'lucide-react';
+import { User, Lock, Mail, Save, Target } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import LoadingSpinner from '../components/LoadingSpinner';
 
@@ -21,13 +21,19 @@ const passwordSchema = z.object({
   path: ["confirmPassword"],
 });
 
+const savingsGoalSchema = z.object({
+  savingsGoal: z.number().positive('Savings goal must be a positive number'),
+});
+
 type ProfileFormData = z.infer<typeof profileSchema>;
 type PasswordFormData = z.infer<typeof passwordSchema>;
+type SavingsGoalFormData = z.infer<typeof savingsGoalSchema>;
 
 export default function Profile() {
-  const { user, updateProfile, changePassword } = useAuth();
+  const { user, updateProfile, changePassword, updateSavingsGoal } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [isPasswordLoading, setIsPasswordLoading] = useState(false);
+  const [isSavingsGoalLoading, setIsSavingsGoalLoading] = useState(false);
 
   const profileForm = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
@@ -39,6 +45,13 @@ export default function Profile() {
 
   const passwordForm = useForm<PasswordFormData>({
     resolver: zodResolver(passwordSchema),
+  });
+
+  const savingsGoalForm = useForm<SavingsGoalFormData>({
+    resolver: zodResolver(savingsGoalSchema),
+    defaultValues: {
+      savingsGoal: user?.savingsGoal || 0,
+    },
   });
 
   const onProfileSubmit = async (data: ProfileFormData) => {
@@ -64,6 +77,17 @@ export default function Profile() {
       // Error toast handled in context
     } finally {
       setIsPasswordLoading(false);
+    }
+  };
+
+  const onSavingsGoalSubmit = async (data: SavingsGoalFormData) => {
+    setIsSavingsGoalLoading(true);
+    try {
+      await updateSavingsGoal({ savingsGoal: data.savingsGoal });
+    } catch {
+      // Error toast handled in context
+    } finally {
+      setIsSavingsGoalLoading(false);
     }
   };
 
@@ -225,11 +249,60 @@ export default function Profile() {
         </motion.div>
       </div>
 
+      <div className="grid grid-cols-1 gap-6">
+        {/* Savings Goal */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.3 }}
+          className="card"
+        >
+          <div className="flex items-center mb-6">
+            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mr-4">
+              <Target className="w-6 h-6 text-green-600" />
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold text-secondary-900">Monthly Savings Goal</h2>
+              <p className="text-secondary-600 text-sm">Set your financial target for the month</p>
+            </div>
+          </div>
+          <form onSubmit={savingsGoalForm.handleSubmit(onSavingsGoalSubmit)} className="space-y-4">
+            <div>
+              <label htmlFor="savingsGoal" className="block text-sm font-medium text-secondary-700 mb-2">
+                Goal Amount
+              </label>
+              <input
+                {...savingsGoalForm.register('savingsGoal', { valueAsNumber: true })}
+                type="number"
+                step="0.01"
+                className="input"
+                placeholder="Enter your monthly savings goal"
+              />
+              {savingsGoalForm.formState.errors.savingsGoal && (
+                <p className="form-error">{savingsGoalForm.formState.errors.savingsGoal.message}</p>
+              )}
+            </div>
+            <button
+              type="submit"
+              disabled={isSavingsGoalLoading}
+              className="w-full btn bg-green-600 text-white hover:bg-green-700 focus:ring-green-500"
+            >
+              {isSavingsGoalLoading ? (
+                <LoadingSpinner size="sm" className="mr-2" />
+              ) : (
+                <Save className="w-4 h-4 mr-2" />
+              )}
+              Set Goal
+            </button>
+          </form>
+        </motion.div>
+      </div>
+
       {/* Account Information */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.3 }}
+        transition={{ duration: 0.5, delay: 0.4 }}
         className="card"
       >
         <h2 className="text-xl font-semibold text-secondary-900 mb-4">Account Information</h2>

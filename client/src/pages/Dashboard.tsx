@@ -1,8 +1,8 @@
 import { motion } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
-import { TrendingUp, TrendingDown, DollarSign, CreditCard, Pencil } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, CreditCard, Pencil, Target, CheckCircle, XCircle } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { getItemStats } from '../services/api'; // Eliminamos getItems ya que no se usa aquí
+import { getItemStats, getMonthlySummary } from '../services/api'; 
 import LoadingSpinner from '../components/LoadingSpinner';
 import { Link } from 'react-router-dom';
 
@@ -16,22 +16,89 @@ interface Item {
   date: string;
 }
 
+interface SavingsSummary {
+  totalIncome: number;
+  totalExpense: number;
+  netSavings: number;
+  savingsGoal: number;
+  goalMet: boolean;
+}
+
+const SavingsGoalCard: React.FC<{ summary: SavingsSummary, isLoading: boolean }> = ({ summary, isLoading }) => {
+  if (isLoading || !summary) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.3 }}
+        className="card flex items-center justify-center"
+      >
+        <LoadingSpinner />
+      </motion.div>
+    );
+  }
+
+  const { netSavings, savingsGoal, goalMet } = summary;
+  const progress = savingsGoal > 0 ? (netSavings / savingsGoal) * 100 : 0;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay: 0.3 }}
+      className="card"
+    >
+      <div className="flex items-center mb-4">
+        <div className={`w-12 h-12 ${goalMet ? 'bg-green-100' : 'bg-red-100'} rounded-lg flex items-center justify-center mr-4`}>
+          <Target className={`w-6 h-6 ${goalMet ? 'text-green-600' : 'text-red-600'}`} />
+        </div>
+        <div>
+          <h3 className="text-lg font-semibold text-secondary-900">Monthly Savings Goal</h3>
+          <p className="text-secondary-600 text-sm">Your progress for this month</p>
+        </div>
+      </div>
+      
+      <div className="space-y-3">
+        <div className="flex justify-between items-center">
+          <span className="font-medium text-secondary-700">Net Savings</span>
+          <span className="font-bold text-lg text-primary-600">${netSavings.toLocaleString()}</span>
+        </div>
+        <div className="flex justify-between items-center">
+          <span className="font-medium text-secondary-700">Your Goal</span>
+          <span className="font-semibold text-secondary-800">${savingsGoal.toLocaleString()}</span>
+        </div>
+        
+        <div className="w-full bg-secondary-200 rounded-full h-2.5">
+          <div 
+            className={`${goalMet ? 'bg-green-500' : 'bg-primary-500'}`} 
+            style={{ width: `${Math.min(progress, 100)}%`, height: '100%', borderRadius: 'inherit' }}
+          />
+        </div>
+
+        <div className={`flex items-center justify-center text-sm font-medium ${goalMet ? 'text-green-600' : 'text-red-600'}`}>
+          {goalMet ? <CheckCircle className="w-4 h-4 mr-1" /> : <XCircle className="w-4 h-4 mr-1" />}
+          {goalMet ? 'Goal Achieved!' : 'Goal Not Met Yet'}
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
 export default function Dashboard() {
-  // Solo necesitamos una query, ya que getItemStats ahora devuelve todo
   const { data: statsData, isLoading: isLoadingStats } = useQuery({ 
     queryKey: ['item-stats'], 
     queryFn: () => getItemStats({ year: new Date().getFullYear() })
   });
 
-  // Eliminamos la query para getItems, ya que statsData lo incluirá
+  const { data: summaryData, isLoading: isLoadingSummary } = useQuery({
+    queryKey: ['monthly-summary'],
+    queryFn: getMonthlySummary,
+  });
 
   const stats = statsData?.data.data;
-  // Obtenemos recentItems directamente de la respuesta de stats
   const recentItems = stats?.recentItems || [];
+  const monthlySummary = summaryData?.data.summary;
 
-  console.log(recentItems);
-
-  // Simplificamos el estado de carga
   if (isLoadingStats) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -42,7 +109,6 @@ export default function Dashboard() {
 
   const totalIncome = typeof stats?.totalIncome === 'number' ? stats.totalIncome : 0;
   const totalExpense = typeof stats?.totalExpense === 'number' ? stats.totalExpense : 0;
-  // Usamos el netSavings calculado por el backend
   const netSavings = typeof stats?.netSavings === 'number' ? stats.netSavings : 0;
   
   const statCards = [
@@ -70,7 +136,6 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-8">
-      {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -82,7 +147,6 @@ export default function Dashboard() {
         </p>
       </motion.div>
 
-      {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {statCards.map((stat, index) => (
           <motion.div
@@ -107,91 +171,44 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Income vs Expenses */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.4 }}
-          className="card"
-        >
-          <h3 className="text-lg font-semibold text-secondary-900 mb-4">
-            Income vs Expenses
-          </h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={stats?.monthlySummary || []}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
-              <YAxis />
-              <Tooltip />
-              <Line
-                type="monotone"
-                dataKey="income"
-                stroke="#10B981"
-                strokeWidth={2}
-                name="Income"
-              />
-              <Line
-                type="monotone"
-                dataKey="expense"
-                stroke="#EF4444"
-                strokeWidth={2}
-                name="Expenses"
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </motion.div>
-
-        {/* Categories */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.5 }}
-          className="card"
-        >
-          <h3 className="text-lg font-semibold text-secondary-900 mb-4">
-            Expense Categories
-          </h3>
-          <div className="flex">
-            <ResponsiveContainer width="60%" height={200}>
-              <PieChart>
-                <Pie
-                  data={stats?.categorySummary || []}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={40}
-                  outerRadius={80}
-                  dataKey="value"
-                >
-                  {(stats?.categorySummary || []).map((entry: any, index: number) => (
-                    <Cell key={`cell-${index}`} fill={PIE_CHART_COLORS[index % PIE_CHART_COLORS.length]} />
-                  ))}
-                </Pie>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.4 }}
+            className="card"
+          >
+            <h3 className="text-lg font-semibold text-secondary-900 mb-4">
+              Income vs Expenses
+            </h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={stats?.monthlySummary || []}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" />
+                <YAxis />
                 <Tooltip />
-              </PieChart>
+                <Line
+                  type="monotone"
+                  dataKey="income"
+                  stroke="#10B981"
+                  strokeWidth={2}
+                  name="Income"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="expense"
+                  stroke="#EF4444"
+                  strokeWidth={2}
+                  name="Expenses"
+                />
+              </LineChart>
             </ResponsiveContainer>
-            <div className="flex-1 space-y-2">
-              {(stats?.categorySummary || []).map((category: any, index: number) => (
-                <div key={category.name} className="flex items-center">
-                  <div
-                    className="w-3 h-3 rounded-full mr-2"
-                    style={{ backgroundColor: PIE_CHART_COLORS[index % PIE_CHART_COLORS.length] }}
-                  />
-                  <span className="text-sm text-secondary-600">
-                    {category.name}
-                  </span>
-                  <span className="ml-auto text-sm font-medium text-secondary-900">
-                    ${category.value.toLocaleString()}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </motion.div>
+          </motion.div>
+        </div>
+        <SavingsGoalCard summary={monthlySummary} isLoading={isLoadingSummary} />
       </div>
 
-      {/* Recent Transactions */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
