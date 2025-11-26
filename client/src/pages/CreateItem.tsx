@@ -1,4 +1,4 @@
-import { useRef, useState, ChangeEvent } from 'react';
+import { useRef, useState, ChangeEvent, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useForm } from 'react-hook-form';
@@ -17,7 +17,15 @@ const itemSchema = z.object({
   paymentMethod: z.enum(['cash', 'debit', 'credit']),
   categoryId: z.coerce.number().optional(),
   date: z.string().min(1, 'Date is required'),
-  notes: z.string().optional(),
+  notes: z.string().min(1, 'Notes are required'),
+}).refine((data) => {
+  if (data.type === 'income' && data.paymentMethod === 'credit') {
+    return false;
+  }
+  return true;
+}, {
+  message: "Income cannot be recorded with credit card payment",
+  path: ["paymentMethod"],
 });
 
 type ItemFormData = z.infer<typeof itemSchema>;
@@ -44,6 +52,8 @@ export default function CreateItem() {
     register,
     handleSubmit,
     formState: { errors },
+    watch,
+    setValue,
   } = useForm<ItemFormData>({
     resolver: zodResolver(itemSchema),
     defaultValues: {
@@ -52,6 +62,16 @@ export default function CreateItem() {
       date: new Date().toISOString().split('T')[0],
     },
   });
+
+  const transactionType = watch('type');
+  const paymentMethod = watch('paymentMethod');
+
+  useEffect(() => {
+    // If transaction type changes to 'income' and payment method is 'credit', reset to 'cash'
+    if (transactionType === 'income' && paymentMethod === 'credit') {
+      setValue('paymentMethod', 'cash');
+    }
+  }, [transactionType, paymentMethod, setValue]);
 
   const createItemMutation = useMutation({
     mutationFn: createItem,
@@ -107,6 +127,12 @@ export default function CreateItem() {
     };
     createItemMutation.mutate(payload);
   };
+
+  const availablePaymentMethods = [
+    { value: 'cash', label: 'Cash' },
+    { value: 'debit', label: 'Debit' },
+    { value: 'credit', label: 'Credit' },
+  ].filter(method => !(transactionType === 'income' && method.value === 'credit'));
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -171,11 +197,7 @@ export default function CreateItem() {
               Payment Method
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {[
-                { value: 'cash', label: 'Cash' },
-                { value: 'debit', label: 'Debit' },
-                { value: 'credit', label: 'Credit' },
-              ].map((method) => (
+              {availablePaymentMethods.map((method) => (
                 <label
                   key={method.value}
                   className="flex items-center space-x-2 p-3 border rounded-lg cursor-pointer hover:border-primary-500 transition-colors"
@@ -267,7 +289,7 @@ export default function CreateItem() {
           {/* Notes */}
           <div>
             <label htmlFor="notes" className="block text-sm font-medium text-secondary-700 mb-2">
-              Notes
+              Notes *
             </label>
             <textarea
               {...register('notes')}
