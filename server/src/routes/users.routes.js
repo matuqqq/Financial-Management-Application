@@ -7,6 +7,7 @@ import {
   getUserStats,
   changePassword,
   updateSavingsGoal,
+  updateExpenseBudget,
 } from '../controllers/users.controller.js';
 import { authenticate } from '../middlewares/auth.middleware.js';
 
@@ -48,6 +49,15 @@ router.patch('/me/savings-goal',
     }),
   }),
   updateSavingsGoal
+);
+
+router.patch('/me/expense-budget',
+  celebrate({
+    body: Joi.object({
+      expenseBudget: Joi.number().positive().required(),
+    }),
+  }),
+  updateExpenseBudget
 );
 
 export default router;

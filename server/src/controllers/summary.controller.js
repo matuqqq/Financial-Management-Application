@@ -10,7 +10,7 @@ export const getMonthlySummary = async (req, res, next) => {
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { savingsGoal: true },
+      select: { savingsGoal: true, expenseBudget: true },
     });
 
     if (!user) {
@@ -46,6 +46,7 @@ export const getMonthlySummary = async (req, res, next) => {
     const totalExpense = expense._sum.amount || 0;
     const netSavings = totalIncome - totalExpense;
     const goalMet = netSavings >= user.savingsGoal;
+    const budgetUsagePercentage = user.expenseBudget > 0 ? (totalExpense / user.expenseBudget) * 100 : 0;
 
     res.status(200).json({
       summary: {
@@ -54,6 +55,8 @@ export const getMonthlySummary = async (req, res, next) => {
         netSavings,
         savingsGoal: user.savingsGoal,
         goalMet,
+        expenseBudget: user.expenseBudget,
+        budgetUsagePercentage,
         startPeriod: startOfMonth.toISOString(),
         endPeriod: endOfMonth.toISOString(),
       },

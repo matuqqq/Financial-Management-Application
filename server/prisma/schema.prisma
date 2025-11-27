@@ -15,6 +15,7 @@ model User {
   password      String
   role          String         @default("user")
   savingsGoal   Float          @default(0)
+  expenseBudget Float          @default(0)
   items         Item[]
   refreshTokens RefreshToken[]
   passwordResetTokens PasswordResetToken[]

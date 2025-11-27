@@ -157,3 +157,33 @@ export const updateSavingsGoal = async (req, res, next) => {
     next(error);
   }
 };
+
+export const updateExpenseBudget = async (req, res, next) => {
+  try {
+    const { expenseBudget } = req.body;
+
+    const updatedUser = await prisma.user.update({
+      where: { id: req.user.id },
+      data: {
+        expenseBudget,
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        savingsGoal: true,
+        expenseBudget: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    res.status(200).json({
+      message: 'Expense budget updated successfully',
+      user: updatedUser,
+    });
+  } catch (error) {
+    next(error);
+  }
+};

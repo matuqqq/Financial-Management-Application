@@ -4,39 +4,24 @@ import toast from 'react-hot-toast';
 import { AxiosError } from 'axios';
 
 interface User {
-
   id: number;
-
   email: string;
-
   name: string;
-
   role: string;
-
   savingsGoal?: number;
-
+  expenseBudget?: number;
 }
 
-
-
 interface AuthContextType {
-
   user: User | null;
-
   loading: boolean;
-
   login: (email: string, password: string) => Promise<void>;
-
   register: (email: string, password: string, name: string) => Promise<void>;
-
   logout: () => void;
-
   updateProfile: (data: Partial<User>) => Promise<void>;
-
   changePassword: (payload: { oldPassword: string; newPassword: string }) => Promise<void>;
-
   updateSavingsGoal: (payload: { savingsGoal: number }) => Promise<void>;
-
+  updateExpenseBudget: (payload: { expenseBudget: number }) => Promise<void>;
 }
 
 
@@ -263,8 +248,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         const message = error.response?.data?.error?.message || 'Failed to update password';
 
-        toast.error(message);
-
       }
 
       else {
@@ -313,6 +296,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 
 
+  const updateExpenseBudget = async (payload: { expenseBudget: number }) => {
+
+    try {
+
+      const response = await api.patch('/users/me/expense-budget', payload);
+
+      setUser(response.data.user);
+
+      toast.success('Expense budget updated successfully');
+
+    } catch (error) {
+
+      if (error instanceof AxiosError) {
+
+        const message = error.response?.data?.error?.message || 'Failed to update expense budget';
+
+        toast.error(message);
+
+      } else {
+
+        toast.error('An unexpected error occurred.');
+
+      }
+
+      throw error;
+
+    }
+
+  };
+
+
+
   return (
 
     <AuthContext.Provider value={{
@@ -332,6 +347,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       changePassword,
 
       updateSavingsGoal,
+
+      updateExpenseBudget,
 
     }}>
 
